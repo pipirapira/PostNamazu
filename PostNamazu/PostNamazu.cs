@@ -248,6 +248,8 @@ namespace PostNamazu
                 var textCommandDele = Delegate.CreateDelegate(deleType, this, typeof(PostNamazu).GetMethod("DoTextCommand"));
                 registerType?.Invoke(trigg.pluginObj, new object[] { "DoTextCommand", textCommandDele, null });
                 registerType?.Invoke(trigg.pluginObj, new object[] { "command", textCommandDele, null });
+                var hexCommandDele = Delegate.CreateDelegate(deleType, this, typeof(PostNamazu).GetMethod("DoHexCommand"));
+                registerType?.Invoke(trigg.pluginObj, new object[] { "DoHexCommand", hexCommandDele, null });
 
                 var wayMarkDele = Delegate.CreateDelegate(deleType, this, typeof(PostNamazu).GetMethod("DoWaymarks"));
                 registerType?.Invoke(trigg.pluginObj, new object[] { "DoWaymarks", wayMarkDele, null });
@@ -321,7 +323,15 @@ namespace PostNamazu
         ///     在游戏进程中执行给出的指令
         /// </summary>
         /// <param name="command">需要执行的指令</param>
-        private void DoTextCommand(string command) {
+        private void DoTextCommand(string command)
+        {
+            DoCommand(command, false);
+        }
+        private void DoHexCommand(string hex)
+        {
+            DoCommand(hex, true);
+        }
+        private void DoCommand(string command,bool isHexString=false) {
             if (FFXIV == null) {
                 PluginUI.Log("执行错误：接收到指令，但是没有对应的游戏进程");
                 throw new Exception("没有对应的游戏进程");
@@ -336,7 +346,7 @@ namespace PostNamazu
             var flag = false;
             try {
                 Monitor.Enter(assemblyLock, ref flag);
-                var array = Encoding.UTF8.GetBytes(command);
+                var array = GetBytesCommand(command, isHexString);
                 using (AllocatedMemory allocatedMemory = Memory.CreateAllocatedMemory(400), allocatedMemory2 = Memory.CreateAllocatedMemory(array.Length + 30)) {
                     allocatedMemory2.AllocateOfChunk("cmd", array.Length);
                     allocatedMemory2.WriteBytes("cmd", array);
@@ -359,7 +369,30 @@ namespace PostNamazu
 
         public void DoTextCommand(object _, string command) {
             //MessageBox.Show(command);
-            DoTextCommand(command);
+            DoCommand(command,false);
+        }
+        public void DoHexCommand(object _, string command)
+        {
+            //MessageBox.Show(command);
+            DoCommand(command, true);
+        }
+        public byte[] GetBytesCommand(string command,bool isHexString = false)
+        {
+            byte[] buf;
+            if (isHexString)
+            {
+                buf = new byte[command.Length / 2 + 1];
+                for (int i = 0; i*2+1 < command.Length; i ++)
+                {
+                    buf[i]= byte.Parse(command.Substring(i*2, 2), System.Globalization.NumberStyles.HexNumber);
+                }
+
+            }
+            else
+            {
+                buf = Encoding.UTF8.GetBytes(command);
+            }
+            return buf;
         }
         #endregion
 
